@@ -87,7 +87,7 @@ func (m *Timeline) Fetch(name string, when time.Time, count int) (map[time.Time]
 	for i := 0; i < count; i++ {
 		var (
 			tick   = start.Add(m.Precision * time.Duration(i))
-			bucket = m.round(start, m.Ttl)
+			bucket = m.round(tick, m.Ttl)
 			key    = fmt.Sprintf("%s:%s:%d:%s", m.Prefix, m.Ttl, bucket.UnixNano()/1e9, name)
 		)
 		conn.Send("HGET", key, tick)
