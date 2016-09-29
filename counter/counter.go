@@ -14,10 +14,12 @@ import (
 
 type Metric struct {
 	Count int64 `redis:"count"`
+	Last  int64 `redis:"last"`
 	Sum   int64 `redis:"sum"`
 	Min   int64 `redis:"min"`
 	Max   int64 `redis:"max"`
 	SumSq int64 `redis:"sumsq"`
+	Date  time.Time
 	Avg   float64
 	Sdv   float64
 }
@@ -84,9 +86,11 @@ func (m *Counter) Incr(name string, latency int) error {
 		key    = fmt.Sprintf("%s:%s", m.Prefix, name)
 		keyMin = fmt.Sprintf("tmp:%s", m.uuid())
 		keyMax = fmt.Sprintf("tmp:%s", m.uuid())
+		last   = time.Now().UnixNano() / 1e6
 	)
 	conn.Send("MULTI")
 	conn.Send("ZINCRBY", key, 1, "count")
+	conn.Send("ZADD", key, last, "last")
 	conn.Send("ZINCRBY", key, latency, "sum")
 	conn.Send("ZINCRBY", key, latency*latency, "sumsq")
 	conn.Send("ZINCRBY", keyMin, latency, "min")
@@ -121,5 +125,6 @@ func (m *Counter) Get(name string) (Metric, error) {
 	val.Avg = float64(val.Sum) / float64(val.Count)
 	n := float64(val.SumSq) - math.Pow(float64(val.Sum), 2)/float64(val.Count)
 	val.Sdv = math.Sqrt(n / math.Max(float64(val.Count)-1, 1))
+	val.Date = time.Unix(0, val.Last*1e6)
 	return val, nil
 }
